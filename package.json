@@ -1,6 +1,6 @@
 {
   "name": "@xuaic/local-typing-monaco",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A TypeScript definition resolver for Monaco Editor that resolves types from local node_modules",
   "type": "module",
   "main": "dist/index.js",
