@@ -10,7 +10,11 @@
 - 🚀 递归解析包内的引用和导入
 - 💾 内置内存缓存
 - 🛠 可配置的解析选项
-- 📦 支持多种类型定义格式（package.json 中的 types、typings、typeVersions 等）
+- 📦 支持多种类型定义来源：
+  - ✨ 优先从 `@types` 包获取类型定义
+  - 📝 包自带的类型定义文件
+  - 🎯 package.json 中的 types、typings、exports、typeVersions 等字段
+  - 🔄 自动生成默认类型（当找不到类型定义时）
 
 ## 重要说明
 
@@ -33,10 +37,9 @@ yarn add @xuaic/local-typing-monaco
 import { TypeDefinitionResolver } from '@xuaic/local-typing-monaco';
 
 const resolver = new TypeDefinitionResolver({
-  cacheEnabled: true,
-  recursionLimit: 10,
+  cacheEnabled: true, // 是否启用缓存
   baseUrl: '/node_modules', // node_modules 目录的路径
-  cachePrefix: 'typing-cache' // 内存缓存前缀
+  pathPrefix: '', // 类型定义文件路径前缀
 });
 
 // 解析包的类型定义
@@ -65,12 +68,9 @@ app.use('/node_modules', express.static('node_modules'));
 // vite.config.js
 export default {
   server: {
-    proxy: {
-      '/node_modules': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/node_modules/, '')
-      }
+    fs: {
+      // 允许访问上层目录的 node_modules
+      allow: ['..']
     }
   }
 }
@@ -93,11 +93,22 @@ location /node_modules {
 
 ```typescript
 interface TypesResolveOptions {
-  // 是否启用内存缓存
+  /**
+   * 是否启用内存缓存
+   * @default true
+   */
   cacheEnabled?: boolean;
-  // node_modules 的基础路径
+  
+  /**
+   * node_modules 的基础路径
+   * @default '/node_modules'
+   */
   baseUrl?: string;
-  // 类型定义文件路径前缀
+  
+  /**
+   * 类型定义文件路径前缀
+   * @default ''
+   */
   pathPrefix?: string;
 }
 ```
@@ -108,14 +119,17 @@ interface TypesResolveOptions {
 
 ## 工作原理
 
-1. 首先尝试从 package.json 中读取类型定义相关信息
-2. 按照以下优先级查找类型定义：
-   - typeVersions 字段
-   - exports.types 字段
-   - types/typings 字段
-   - 默认的 index.d.ts
-3. 递归解析包内所有的引用（/// <reference>）和导入语句
-4. 将结果缓存到内存中
+当请求一个包的类型定义时，解析器会按以下顺序查找：
+
+1. 首先检查是否存在对应的 `@types` 包（例如：对于 `lodash` 包，会先查找 `@types/lodash`）
+2. 如果找到 `@types` 包，则使用其类型定义
+3. 如果没有找到 `@types` 包，则尝试从原始包中获取类型定义：
+   - 检查 package.json 中的类型相关字段
+   - 查找默认的类型定义文件位置
+   - 解析所有引用和导入
+4. 如果以上都没有找到类型定义，则生成默认的 `any` 类型定义
+
+所有解析到的类型定义都会被缓存，无论是通过 `@types` 包获取的还是从原始包获取的，以提高后续访问的性能。
 
 ## 局限性
 

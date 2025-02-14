@@ -10,7 +10,11 @@ A TypeScript definition resolver for Monaco Editor that resolves types from loca
 - 🚀 Recursively resolves references and imports within package
 - 💾 Built-in memory cache
 - 🛠 Configurable resolution options
-- 📦 Supports various type definition formats (types, typings, typeVersions in package.json)
+- 📦 Supports multiple type definition sources:
+  - ✨ Prioritizes `@types` packages for type definitions
+  - 📝 Package's own type definition files
+  - 🎯 Types from package.json fields (types, typings, exports, typeVersions)
+  - 🔄 Auto-generated default types (when no types found)
 
 ## Important Notes
 
@@ -33,10 +37,9 @@ yarn add @xuaic/local-typing-monaco
 import { TypeDefinitionResolver } from '@xuaic/local-typing-monaco';
 
 const resolver = new TypeDefinitionResolver({
-  cacheEnabled: true,
-  recursionLimit: 10,
+  cacheEnabled: true, // Enable caching
   baseUrl: '/node_modules', // Path to your node_modules directory
-  cachePrefix: 'typing-cache' // Memory cache prefix
+  pathPrefix: '', // Prefix for type definition file paths
 });
 
 // Resolve type definitions for a package
@@ -65,12 +68,9 @@ app.use('/node_modules', express.static('node_modules'));
 // vite.config.js
 export default {
   server: {
-    proxy: {
-      '/node_modules': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/node_modules/, '')
-      }
+    fs: {
+      // Allow serving files from parent directory's node_modules
+      allow: ['..']
     }
   }
 }
@@ -93,11 +93,22 @@ Make sure to:
 
 ```typescript
 interface TypesResolveOptions {
-  // Enable memory cache
+  /**
+   * Enable memory cache
+   * @default true
+   */
   cacheEnabled?: boolean;
-  // Base URL for node_modules
+  
+  /**
+   * Base URL for node_modules
+   * @default '/node_modules'
+   */
   baseUrl?: string;
-  // Prefix for type definition file paths
+  
+  /**
+   * Prefix for type definition file paths
+   * @default ''
+   */
   pathPrefix?: string;
 }
 ```
@@ -106,16 +117,34 @@ interface TypesResolveOptions {
 
 Check out the [example](./example) directory for a complete example project. The example uses vanilla JavaScript and has no build dependencies.
 
+## Features
+
+- 🚀 Automatically resolves npm package type definitions
+- 💪 Supports multiple type definition sources:
+  - ✨ Prioritizes `@types` packages for type definitions
+  - 📦 Package's own type definition files
+  - 🔍 types/typings fields in package.json
+  - 🎯 Types in exports field
+  - 📝 typeVersions field support
+  - 🔄 Auto-generated default types (when no types found)
+- 🗂️ Supports type reference (/// <reference>) resolution
+- 📥 Supports import statement resolution
+- ⚡️ Built-in caching support (configurable)
+- 🔧 Customizable base URL and path prefix
+
 ## How It Works
 
-1. First attempts to read type information from package.json
-2. Looks for type definitions in the following order:
-   - typeVersions field
-   - exports.types field
-   - types/typings field
-   - default index.d.ts
-3. Recursively resolves all references (/// <reference>) and imports within the package
-4. Caches results in memory
+When requesting type definitions for a package, the resolver follows this order:
+
+1. First checks if a corresponding `@types` package exists (e.g., for `lodash`, it first looks for `@types/lodash`)
+2. If an `@types` package is found, uses its type definitions
+3. If no `@types` package is found, attempts to get type definitions from the original package:
+   - Checks type-related fields in package.json
+   - Looks for default type definition file locations
+   - Resolves all references and imports
+4. If no type definitions are found, generates a default `any` type definition
+
+All resolved type definitions are cached, whether they come from `@types` packages or original packages, to improve subsequent access performance.
 
 ## Limitations
 
