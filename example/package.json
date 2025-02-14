@@ -1,0 +1,15 @@
+{
+  "name": "example",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "start": "serve .",
+    "copy-dist": "cp -r ../dist ."
+  },
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "@types/lodash": "^4.17.7",
+    "rxjs": "^7.8.1",
+    "serve": "^14.2.1"
+  }
+}

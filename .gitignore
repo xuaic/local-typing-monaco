@@ -1,0 +1,13 @@
+node_modules/
+# 忽略所有 node_modules
+node_modules/
+
+# 允许 example/node_modules 目录
+!example/node_modules/
+dist
+!example/dist
+
+# 排除 example/node_modules 下除 rxjs 外的其他内容
+example/node_modules/*
+!example/node_modules/rxjs/
+!example/node_modules/@types/

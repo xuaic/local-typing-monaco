@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>@xuaic/local-typing-monaco Example</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      background-color: #f5f5f5;
+    }
+    #container {
+      display: flex;
+      gap: 20px;
+      height: calc(100vh - 40px);
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    #left-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    #right-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    #editor {
+      height: 100%;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    #package-input {
+      display: flex;
+      gap: 10px;
+    }
+    input {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+    input:focus {
+      outline: none;
+      border-color: #0066cc;
+    }
+    button {
+      padding: 12px 24px;
+      background: #0066cc;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #0052a3;
+    }
+    button:disabled {
+      background: #cccccc;
+      cursor: not-allowed;
+    }
+    .result-item {
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      background: white;
+      transition: all 0.3s ease;
+    }
+    .result-item:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .result-item.package {
+      border-left: 4px solid #4CAF50;
+    }
+    .result-item.type {
+      border-left: 4px solid #2196F3;
+    }
+    .result-item.reference {
+      border-left: 4px solid #9C27B0;
+    }
+    .result-item.import {
+      border-left: 4px solid #FF9800;
+    }
+    .result-item.default {
+      border-left: 4px solid #F44336;
+      background: #fff8f8;
+    }
+    .result-type {
+      font-weight: 500;
+      color: #666;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .result-path {
+      color: #0066cc;
+      word-break: break-all;
+      font-size: 12px;
+      padding-left: 24px;
+    }
+    #result {
+      flex: 1;
+      padding: 15px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      overflow: auto;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      background: #f8f9fa;
+    }
+    .panel-title {
+      margin: 0 0 15px 0;
+      color: #333;
+      font-size: 18px;
+      font-weight: 500;
+    }
+    #status {
+      margin-top: 10px;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 14px;
+      display: none;
+    }
+    #status.success {
+      display: block;
+      background: #e6f4ea;
+      color: #1e7e34;
+    }
+    #status.error {
+      display: block;
+      background: #fde7e9;
+      color: #dc3545;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+</head>
+<body>
+  <div id="container">
+    <div id="left-panel">
+      <h2 class="panel-title">TypeScript Playground</h2>
+      <div id="package-input">
+        <input type="text" id="package-name" placeholder="输入包名 (例如: rxjs, lodash)">
+        <button id="resolve-btn">加载类型</button>
+      </div>
+      <div id="status"></div>
+      <div id="editor"></div>
+    </div>
+    <div id="right-panel">
+      <h2 class="panel-title">类型定义结果</h2>
+      <div id="result"></div>
+    </div>
+  </div>
+  <script>
+    require.config({
+      paths: {
+        'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs',
+        '@xuaic/local-typing-monaco': './dist/index.umd'
+      }
+    });
+
+    require(['vs/editor/editor.main', '@xuaic/local-typing-monaco'], function(monaco, typingMonaco) {
+      // 配置 Monaco Editor 的 TypeScript 编译器选项
+      monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+        target: monaco.languages.typescript.ScriptTarget.ES2020,
+        allowNonTsExtensions: true,
+        moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+        module: monaco.languages.typescript.ModuleKind.CommonJS,
+        noEmit: true,
+        esModuleInterop: true,
+        allowJs: true,
+        strict: true,
+        noImplicitAny: true,
+        baseUrl: 'file:///',
+        paths: {
+          '*': ['*', '@types/*']
+        }
+      });
+
+      // 初始化 Monaco Editor
+      const editor = monaco.editor.create(document.getElementById('editor'), {
+        value: '// 在这里输入代码\n import { Observable } from "rxjs";\n',
+        language: 'typescript',
+        theme: 'vs',
+        automaticLayout: true,
+        minimap: { enabled: false },
+        fontSize: 14,
+        lineHeight: 21,
+        padding: { top: 10, bottom: 10 },
+        scrollBeyondLastLine: false,
+        renderLineHighlight: 'all',
+        suggestOnTriggerCharacters: true,
+        quickSuggestions: true,
+        wordBasedSuggestions: true
+      });
+
+      // 初始化类型解析器
+      const resolver = new typingMonaco.TypeDefinitionResolver({
+        baseUrl: '/node_modules',
+        cacheEnabled: true,
+        pathPrefix: 'file:///'
+      });
+
+      // 获取 DOM 元素
+      const packageNameInput = document.getElementById('package-name');
+      const resolveButton = document.getElementById('resolve-btn');
+      const resultDiv = document.getElementById('result');
+      const statusDiv = document.getElementById('status');
+
+      // 显示状态信息
+      function showStatus(message, type = 'success') {
+        statusDiv.textContent = message;
+        statusDiv.className = type;
+        setTimeout(() => {
+          statusDiv.style.display = 'none';
+        }, 5000);
+      }
+
+      // 处理类型解析
+      async function resolveTypes() {
+        const packageName = packageNameInput.value.trim();
+
+        if (!packageName) {
+          showStatus('请输入包名', 'error');
+          return;
+        }
+
+        try {
+          resolveButton.disabled = true;
+          resolveButton.textContent = '正在加载...';
+          resultDiv.textContent = '正在解析类型定义...';
+
+          const results = await resolver.resolveTypeDefinition(packageName);
+
+          // 清除之前的类型定义
+          monaco.languages.typescript.typescriptDefaults.setExtraLibs([]);
+
+          // 将类型定义添加到 Monaco Editor
+          results.forEach(def => {
+            monaco.languages.typescript.typescriptDefaults.addExtraLib(
+              def.content,
+              def.filePath
+            );
+          });
+          console.log(results);
+          // 显示结果
+          const formattedResults = results.map(def => ({
+            filePath: typeof def.filePath === 'string' ? def.filePath : `${packageName}/index.d.ts`,
+            source: def.source
+          }));
+          
+          const resultContent = formattedResults.map(item => {
+            let sourceType;
+            let sourceClass;
+            switch (item.source) {
+              case 'package.json':
+                sourceType = '📦 包信息';
+                sourceClass = 'package';
+                break;
+              case 'backend':
+                sourceType = '📄 类型定义';
+                sourceClass = 'type';
+                break;
+              case 'reference':
+                sourceType = '🔗 引用类型';
+                sourceClass = 'reference';
+                break;
+              case 'import':
+                sourceType = '⬇️ 导入类型';
+                sourceClass = 'import';
+                break;
+              case 'default':
+                sourceType = '⚠️ 默认类型';
+                sourceClass = 'default';
+                break;
+              default:
+                sourceType = item.source;
+                sourceClass = 'other';
+            }
+            return `<div class="result-item ${sourceClass}">
+              <div class="result-type">${sourceType}</div>
+              <div class="result-path">${item.filePath}</div>
+            </div>`;
+          }).join('');
+
+          resultDiv.innerHTML = resultContent;
+          showStatus(`成功加载 ${packageName} 的类型定义`);
+
+        } catch (error) {
+          showStatus(`错误: ${error.message}`, 'error');
+          resultDiv.textContent = `加载失败: ${error.message}`;
+        } finally {
+          resolveButton.disabled = false;
+          resolveButton.textContent = '加载类型';
+        }
+      }
+
+      // 绑定事件
+      resolveButton.addEventListener('click', resolveTypes);
+      packageNameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          resolveTypes();
+        }
+      });
+
+      // 设置编辑器自动完成
+      monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+        noSemanticValidation: false,
+        noSyntaxValidation: false
+      });
+    });
+  </script>
+</body>
+</html> 
